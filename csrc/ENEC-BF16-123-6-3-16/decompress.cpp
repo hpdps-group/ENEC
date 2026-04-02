@@ -54,6 +54,8 @@ int main(int32_t argc, char *argv[])
 
     Header *cphd = reinterpret_cast<Header *>(compressed);
 
+    // printf("first: %d\n", ((uint16_t*)getEdata(cphd, compressed))[0]);
+
     uint32_t *prefix = (uint32_t *)getCompSizePrefix(cphd, compressed);
 
     uint8_t *compressedDevice, *decompressed;
@@ -88,26 +90,27 @@ int main(int32_t argc, char *argv[])
         cerr << "Unable to open the file: " << sourceFile << endl;
         return EXIT_FAILURE;
     }
-    uint8_t *source = (uint8_t *)malloc(cphd->totalUncompressedBytes);
-    file0.read(reinterpret_cast<char *>(source), cphd->totalUncompressedBytes);
+    uint8_t *source = (uint8_t *)malloc(cphd->totalUncompressedBytes_Origin);
+    file0.read(reinterpret_cast<char *>(source), cphd->totalUncompressedBytes_Origin);
     file0.close();
 
     printf("Compressed size: %d\n", cphd->totalCompressedBytes);
-    printf("Size after decompression: %d\n", cphd->totalUncompressedBytes);
+    printf("Size after decompression: %d\n", cphd->totalUncompressedBytes_Origin);
 
     uint8_t *srcDevice, *outDevice;
-    CHECK_ACL(aclrtMalloc((void **)&srcDevice, cphd->totalUncompressedBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    CHECK_ACL(aclrtMalloc((void **)&srcDevice, cphd->totalUncompressedBytes_Origin, ACL_MEM_MALLOC_HUGE_FIRST));
     CHECK_ACL(aclrtMalloc((void **)&outDevice, cphd->dataBlockNum * 32, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMemcpy(srcDevice, cphd->totalUncompressedBytes, source, cphd->totalUncompressedBytes, ACL_MEMCPY_HOST_TO_DEVICE));
+    CHECK_ACL(aclrtMemcpy(srcDevice, cphd->totalUncompressedBytes_Origin, source, cphd->totalUncompressedBytes_Origin, ACL_MEMCPY_HOST_TO_DEVICE));
 
     printf("自动验证解压正确性...\n");
+    bool check = true;
     uint16_t* source2 = (uint16_t*)source;
     uint16_t* decompressedHost2 = (uint16_t*)decompressedHost;
-    for (int i = 0; i < cphd->totalUncompressedBytes / 2; i++)
+    for (int i = 0; i < cphd->totalUncompressedBytes_Origin / 2; i++)
     {
-        if(i / (cphd->dataBlockSize / 2) == 7967 && i % (cphd->dataBlockSize / 2) == 16286){
-            printf("%d, %d\n", decompressedHost2[i], source2[i]);
-        }
+        // if(i / (cphd->dataBlockSize / 2) == 7967 && i % (cphd->dataBlockSize / 2) == 16286){
+        //     printf("%d, %d\n", decompressedHost2[i], source2[i]);
+        // }
         if (source2[i] != decompressedHost2[i])
         {
             int blockid = i / (cphd->dataBlockSize / 2);
@@ -117,7 +120,10 @@ int main(int32_t argc, char *argv[])
             }
         }
     }
-    printf("正确性无误!\n");
+    if(check == true)
+        printf("正确性无误!\n");
+    else
+        printf("正确性有误!\n");
 
     CHECK_ACL(aclrtFree(srcDevice));
     CHECK_ACL(aclrtFree(decompressed));

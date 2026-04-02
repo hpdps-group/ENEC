@@ -37,13 +37,13 @@ endif()
 include(${ASCENDC_CMAKE_DIR}/ascendc.cmake)
 
 ascendc_library(snec_compress STATIC
-    snec_table.cpp
+    # snec_table.cpp
     snec_compress.cpp
     snec_merge.cpp
 )
 ascendc_library(snec_decompress STATIC
     snec_decompress.cpp
-    snec_verify.cpp
+    # snec_verify.cpp
 )
 
 add_executable(compress compress.cpp)

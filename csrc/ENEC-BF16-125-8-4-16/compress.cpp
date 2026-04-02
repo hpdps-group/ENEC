@@ -35,7 +35,8 @@ int main(int32_t argc, char *argv[])
 
     inputFile = argv[1];
     outputFile = argv[2];
-    inputByteSize = std::stoul(argv[3]);
+    size_t inputByteSize_Origin = std::stoul(argv[3]);
+    inputByteSize = (inputByteSize_Origin + 32768 - 1) / 32768 * 32768;
     tileLength = std::stoi(argv[4]);
     dataType = std::stoi(argv[5]);
 
@@ -70,13 +71,13 @@ int main(int32_t argc, char *argv[])
     cphd->dataBlockNum = (inputByteSize + DATA_BLOCK_BYTE_NUM_C - 1) / DATA_BLOCK_BYTE_NUM_C;
     cphd->threadBlockNum = BLOCK_NUM;
     cphd->compLevel = 0;
+    cphd->totalUncompressedBytes_Origin = inputByteSize_Origin;
     cphd->totalUncompressedBytes = inputByteSize;
     cphd->totalCompressedBytes = 0;
     cphd->tileLength = tileLength;
     cphd->dataType = dataType;
     cphd->mblLength = 4;
     cphd->options = 3;
-    cphd->histogramBytes = HISTOGRAM_BINS;
 
     uint8_t *srcDevice, *compressedDevice, *compressedFinal, *histogramDevice, *blockCompSizeDevice;
     CHECK_ACL(aclrtMalloc((void **)&srcDevice, inputByteSize, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -93,9 +94,14 @@ int main(int32_t argc, char *argv[])
         enec_compress(cphd, stream, srcDevice, compressedDevice, compressedFinal, histogramDevice, blockCompSizeDevice);
         CHECK_ACL(aclrtSynchronizeStream(stream));
     }
+    // uint8_t *compressedHostMerged;
+    // CHECK_ACL(aclrtMallocHost((void **)(&compressedHostMerged), getFinalbufferSize(inputByteSize, tileNum, DATA_BLOCK_BYTE_NUM_C)));
+    // CHECK_ACL(aclrtMemcpy(compressedHostMerged, getFinalbufferSize(inputByteSize, tileNum, DATA_BLOCK_BYTE_NUM_C), compressedFinal, getFinalbufferSize(inputByteSize, tileNum, DATA_BLOCK_BYTE_NUM_C), ACL_MEMCPY_DEVICE_TO_HOST));
 
     int datablockNum = (inputByteSize + DATA_BLOCK_BYTE_NUM_C - 1) / DATA_BLOCK_BYTE_NUM_C;
+    // printf("datablockNum: %d\n", datablockNum);
     int datablockNumPerBLOCK = (datablockNum + BLOCK_NUM - 1) / BLOCK_NUM;
+    // printf("datablockNumPerBLOCK: %d\n", datablockNumPerBLOCK);
     uint32_t bufferSize = (DATA_BLOCK_BYTE_NUM_C * datablockNumPerBLOCK);
     enec_merge(cphd, stream, compressedDevice, compressedFinal, histogramDevice, blockCompSizeDevice, bufferSize);
     CHECK_ACL(aclrtSynchronizeStream(stream));
@@ -106,15 +112,16 @@ int main(int32_t argc, char *argv[])
     Header *cphdM = (Header *)compressedHostMerged;
     uint32_t totalCompressedSize0 = cphdM->totalCompressedBytes;
     
-    printf("Size before compression: %d\n", cphdM->totalUncompressedBytes);
+    printf("Size before compression: %d\n", cphdM->totalUncompressedBytes_Origin);
     printf("Compressed size: %d\n", totalCompressedSize0);
-    printf("cr: %f\n", computeCr(inputByteSize, totalCompressedSize0));
+    printf("cr: %f\n", computeCr(inputByteSize_Origin, totalCompressedSize0));
 
     std::ofstream ofile;
     ofile.open(outputFile, std::ios::binary);
     std::filebuf *obuf = ofile.rdbuf();
     ofile.write(reinterpret_cast<char *>(compressedHostMerged), totalCompressedSize0);
     ofile.close();
+
 
     // --- 内存释放与环境销毁 ---
     printf("Cleaning up resources...\n");

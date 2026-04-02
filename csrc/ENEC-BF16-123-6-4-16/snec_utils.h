@@ -39,13 +39,13 @@ struct Header
     uint32_t dataBlockNum;           // Number of data blocks
     uint16_t threadBlockNum;         // The number of thread blocks, the high 16 bits store the number of thread blocks and the low 16 bits store the compression level
     uint16_t compLevel;              // Compression level
-    uint32_t totalUncompressedBytes; // Total uncompressed bytes
+    uint32_t totalUncompressedBytes_Origin; // Total uncompressed bytes Original
+    uint32_t totalUncompressedBytes; // Total uncompressed bytes Aligned
     uint32_t totalCompressedBytes;   // Total compression bytes
     uint16_t tileLength;             // Tile length
     uint16_t dataType;               // The data type is 0 for bf16, 1 for fp16, and 2 for fp32
     uint16_t mblLength;              // mbl length
     uint16_t options;                // The options are 0 for CPU, 1 for NV_GPU, 2 for AMD_GPU, and 3 for NPU
-    uint32_t histogramBytes;         // A histogram holds the number of bytes
 };
 
 inline uint8_t *getMsdata(Header *cphd, uint8_t *compressed)// ms
@@ -76,11 +76,11 @@ inline uint8_t *getCompressed_exp(Header *cphd, uint8_t *compressed)// low bits
     return getCompSizePrefix(cphd, compressed) + cphd->threadBlockNum * sizeof(uint32_t);
 }
 
-inline int getFinalbufferSize(uint32_t byteSize, uint32_t tileNum, uint32_t DATA_BLOCK_BYTE_NUM_C) // 单位：byte
+inline size_t getFinalbufferSize(uint32_t byteSize, uint32_t tileNum, uint32_t DATA_BLOCK_BYTE_NUM_C) // 单位：byte
 {
     int datablockNum = (byteSize + DATA_BLOCK_BYTE_NUM_C - 1) / DATA_BLOCK_BYTE_NUM_C;
     int datablockNumPerBLOCK = (datablockNum + BLOCK_NUM - 1) / BLOCK_NUM;
-    int FinalBufferSize = 32 + // 头
+    size_t FinalBufferSize = 32 + // 头
                           DATA_BLOCK_BYTE_NUM_C / 2 * datablockNum + // ms
                           (DATA_BLOCK_BYTE_NUM_C / sizeof(uint16_t)) * 4 / 8 * datablockNum + // low bits
                           tileNum / 8 * datablockNum + // mbl compareMask

@@ -94,7 +94,7 @@ def find_hyperparams(tensor: torch.Tensor) -> dict:
     
     # Now search for m and L to minimize average bit length
     # L_options = [1, 2, 4, 8, 16, 32, 64]
-    L_options = [ 16, 32, 64]
+    L_options = [ 16 ]
     min_avg = float('inf')
     best_m = None
     best_L = None

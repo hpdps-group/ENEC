@@ -25,13 +25,13 @@ public:
                                 uint32_t dataBlockNum,
                                 uint32_t threadBlockNum,
                                 uint32_t compLevel,
+                                uint32_t totalUncompressedBytes_Origin,
                                 uint32_t totalUncompressedBytes,
                                 uint32_t totalCompressedBytes,
                                 uint32_t tileLength,
                                 uint32_t dataType,
                                 uint32_t mblLength,
                                 uint32_t options,
-                                uint32_t histogramBytes,
                                 uint32_t bufferSize) {
         this->pipe = pipe;
         this->blockId = GetBlockIdx();
@@ -40,13 +40,13 @@ public:
         this->datablocknum = dataBlockNum;
         this->threadblocknum = threadBlockNum;
         this->complevel = compLevel;
+        this->totaluncompressedbytes_Origin = totalUncompressedBytes_Origin;
         this->totaluncompressedbytes = totalUncompressedBytes;
         this->totalcompressedbytes = totalCompressedBytes;
         this->tilelength = tileLength;
         this->datatype = dataType;
         this->mbllength = mblLength;
         this->options = options;
-        this->histogrambytes = histogramBytes;
         this->buffersize = bufferSize;
 
         finalheader.SetGlobalBuffer((__gm__ T*)(finalHeader));
@@ -149,12 +149,12 @@ public:
             tempLocal[64](0) = datablocksize;                // dataBlockSize
             tempLocal[64](1) = datablocknum;                 // dataBlockNum
             tempLocal[64](2) = threadblocknum | (complevel << 16); // threadBlockNum (low 16), compLevel (high 16)
-            tempLocal[64](3) = totaluncompressedbytes;       // totalUncompressedBytes
+            tempLocal[64](3) = totaluncompressedbytes_Origin;
+            tempLocal[64](4) = totaluncompressedbytes;       // totalUncompressedBytes
             // assert(totaluncompressedbytes == 32 * 1024 * 1024);
-            tempLocal[64](4) = totalcompressedsize;          // totalCompressedBytes
-            tempLocal[64](5) = tilelength | (datatype << 16); // tileLength (low 16), dataType (high 16)
-            tempLocal[64](6) = mbllength | (options << 16);   // mblLength (low 16), options (high 16)
-            tempLocal[64](7) = histogrambytes;               // histogramBytes
+            tempLocal[64](5) = totalcompressedsize;          // totalCompressedBytes
+            tempLocal[64](6) = tilelength | (datatype << 16); // tileLength (low 16), dataType (high 16)
+            tempLocal[64](7) = mbllength | (options << 16);   // mblLength (low 16), options (high 16)
             DataCopy(finalheader, tempLocal[64], 8);
 
         }
@@ -182,13 +182,13 @@ private:
     uint32_t datablocknum;
     uint32_t threadblocknum;
     uint32_t complevel;
+    uint32_t totaluncompressedbytes_Origin;
     uint32_t totaluncompressedbytes;
     uint32_t totalcompressedbytes;
     uint32_t tilelength;
     uint32_t datatype;
     uint32_t mbllength;
     uint32_t options;
-    uint32_t histogrambytes;
     uint32_t buffersize;
 };
 
@@ -205,22 +205,22 @@ __global__ __aicore__ void merge(
                                     uint32_t dataBlockNum,
                                     uint32_t threadBlockNum,
                                     uint32_t compLevel,
+                                    uint32_t totalUncompressedBytes_Origin,
                                     uint32_t totalUncompressedBytes,
                                     uint32_t totalCompressedBytes,
                                     uint32_t tileLength,
                                     uint32_t dataType,
                                     uint32_t mblLength,
                                     uint32_t options,
-                                    uint32_t histogramBytes,
                                     uint32_t bufferSize
                                     )
 {
     TPipe pipe;
     mergeKernel<uint32_t> op;
-    op.Init(&pipe, finalHeader, finalMs, finalMbl, finalCompPrefix, compedexp, finalExp, histogramDevice, blockCompSize, dataBlockSize, dataBlockNum, threadBlockNum, compLevel, totalUncompressedBytes, totalCompressedBytes, tileLength, dataType, mblLength, options, histogramBytes, bufferSize);
+    op.Init(&pipe, finalHeader, finalMs, finalMbl, finalCompPrefix, compedexp, finalExp, histogramDevice, blockCompSize, dataBlockSize, dataBlockNum, threadBlockNum, compLevel, totalUncompressedBytes_Origin, totalUncompressedBytes, totalCompressedBytes, tileLength, dataType, mblLength, options, bufferSize);
     op.Process();
 }
 
 extern "C" void enec_merge(Header *cphd, void *stream, uint8_t *compressedDevice, uint8_t *compressedFinal, uint8_t *histogramDevice, uint8_t *blockCompSizeDevice, uint32_t bufferSize){
-    merge<<<BLOCK_NUM, nullptr, stream>>>(compressedFinal, getMsdata(cphd, compressedFinal), getMbl(cphd, compressedFinal), getCompSizePrefix(cphd, compressedFinal), getCompressed_exp(cphd, compressedDevice), getCompressed_exp(cphd, compressedFinal), histogramDevice, blockCompSizeDevice, cphd->dataBlockSize, cphd->dataBlockNum, cphd->threadBlockNum, cphd->compLevel, cphd->totalUncompressedBytes, cphd->totalCompressedBytes, cphd->tileLength, cphd->dataType, cphd->mblLength, cphd->options, cphd->histogramBytes, bufferSize);
+    merge<<<BLOCK_NUM, nullptr, stream>>>(compressedFinal, getMsdata(cphd, compressedFinal), getMbl(cphd, compressedFinal), getCompSizePrefix(cphd, compressedFinal), getCompressed_exp(cphd, compressedDevice), getCompressed_exp(cphd, compressedFinal), histogramDevice, blockCompSizeDevice, cphd->dataBlockSize, cphd->dataBlockNum, cphd->threadBlockNum, cphd->compLevel, cphd->totalUncompressedBytes_Origin, cphd->totalUncompressedBytes, cphd->totalCompressedBytes, cphd->tileLength, cphd->dataType, cphd->mblLength, cphd->options, bufferSize);
 }
