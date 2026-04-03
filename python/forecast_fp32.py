@@ -38,7 +38,7 @@ def calculate_model_compression_stats(file_path):
     # 计算整体平均位宽
     overall_avg_bit = total_compressed_bits / total_elements if total_elements > 0 else 0
 
-    avg_compression_ratio_formula = 32 / (23 + overall_avg_bit) if (8 + overall_avg_bit) > 0 else 0
+    avg_compression_ratio_formula = 32 / (24 + overall_avg_bit) if (8 + overall_avg_bit) > 0 else 0
 
     # 4. 打印输出
     print("="*50)
