@@ -71,6 +71,4 @@ bash data_prepare.sh
 ```shell
 # 1. Compression ratio and compression throughput
 bash compressor_test.sh
-# 2. Inference
-bash run_inference.sh
 ```
