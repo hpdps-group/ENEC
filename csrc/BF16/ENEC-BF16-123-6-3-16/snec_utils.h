@@ -60,7 +60,7 @@ inline uint8_t *getEdata(Header *cphd, uint8_t *compressed)// ms
 
 inline uint8_t *getMbl(Header *cphd, uint8_t *compressed)// compareMask
 {
-    return getEdata(cphd, compressed) + (cphd->dataBlockSize / sizeof(uint16_t)) * 4 / 8 * cphd->dataBlockNum;
+    return getEdata(cphd, compressed) + (cphd->dataBlockSize / sizeof(uint16_t)) * 3 / 8 * cphd->dataBlockNum;
 }
 
 inline uint8_t *getCompSizePrefix(Header *cphd, uint8_t *compressed)// prefix
@@ -82,7 +82,7 @@ inline size_t getFinalbufferSize(uint32_t byteSize, uint32_t tileNum, uint32_t D
     int datablockNumPerBLOCK = (datablockNum + BLOCK_NUM - 1) / BLOCK_NUM;
     size_t FinalBufferSize = 32 + // 头
                           DATA_BLOCK_BYTE_NUM_C / 2 * datablockNum + // ms
-                          (DATA_BLOCK_BYTE_NUM_C / sizeof(uint16_t)) * 4 / 8 * datablockNum + // low bits
+                          (DATA_BLOCK_BYTE_NUM_C / sizeof(uint16_t)) * 3 / 8 * datablockNum + // low bits
                           tileNum / 8 * datablockNum + // mbl compareMask
                           BLOCK_NUM * 4 + // prefix
                           (DATA_BLOCK_BYTE_NUM_C * datablockNumPerBLOCK) * BLOCK_NUM; // high bits

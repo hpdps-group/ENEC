@@ -1,81 +1,118 @@
 #!/bin/bash
 
-# 定义颜色
+# --- 0. Force Environment Cleanup ---
+# Key to solving "Text file busy": Kill old running processes
+echo "Cleaning up residual processes..."
+pkill -9 -f "compress" || true
+pkill -9 -f "decompress" || true
+sleep 0.5 # Give the kernel time to release file handles
+
+# Define Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # 无颜色
+NC='\033[0m' # No Color
 
-# 1. 加载昇腾开发环境
+# 1. Load Ascend Development Environment
 ASCEND_ENV="/data/wja/ascend/ascend-toolkit/set_env.sh"
 if [ -f "$ASCEND_ENV" ]; then
     source "$ASCEND_ENV"
-    echo -e "${GREEN}✅ 已加载 Ascend 环境${NC}"
+    echo -e "${GREEN}✅ Ascend environment loaded${NC}"
 else
-    echo -e "${RED}⚠️ 警告: 未找到 set_env.sh${NC}"
+    echo -e "${RED}⚠️ Warning: set_env.sh not found${NC}"
 fi
 
-# 2. 设置目录
+# 2. Set Directories
 TARGET_ROOT="./csrc"
-[ ! -d "$TARGET_ROOT" ] && echo "找不到目录" && exit 1
+if [ ! -d "$TARGET_ROOT" ]; then
+    echo -e "${RED}Error: Directory $TARGET_ROOT not found${NC}"
+    exit 1
+fi
 ABS_ROOT=$(realpath "$TARGET_ROOT")
 
-# --- 初始化统计变量 ---
+# Define and create directory for executables
+EXEC_DIR="$ABS_ROOT/exec"
+mkdir -p "$EXEC_DIR"
+echo -e "${GREEN}📂 Executables will be stored in: $EXEC_DIR${NC}"
+
+# --- Initialize Statistics Variables ---
 declare -a FAILED_PROJECTS
 SUCCESS_COUNT=0
 TOTAL_COUNT=0
 
-# 3. 递归查找并编译
-# 注意：这里改用 process substitution 防止 while 循环在子 shell 中运行导致变量丢失
+# 3. Recursively Find and Compile
+# Use -prune or filtering to skip existing build directories for efficiency
 while read -r cmake_file; do
     project_dir=$(dirname "$cmake_file")
+    
+    # Skip existing build directories and their subdirectories
     [[ "$project_dir" == *"/build"* ]] && continue
 
     ((TOTAL_COUNT++))
     rel_path=${project_dir#$ABS_ROOT/}
     
-    echo -e "\n${YELLOW}▶ 正在编译 [$TOTAL_COUNT]: $rel_path${NC}"
+    # Extract directory name as suffix (e.g., ENEC-BF16-121-6-3-16)
+    suffix=$(basename "$project_dir")
+    
+    echo -e "\n${YELLOW}▶ Compiling [$TOTAL_COUNT]: $rel_path${NC}"
 
     pushd "$project_dir" > /dev/null || continue
-    [ ! -d "build" ] && mkdir build
+    
+    # Prepare build directory
+    mkdir -p build
     pushd build > /dev/null || continue
     
-    # 编译命令
+    # Execute compilation logic (Silent mode)
     cmake .. -DCMAKE_BUILD_TYPE=Release > /dev/null 2>&1
     make clean > /dev/null 2>&1
     make -j 32 > /dev/null 2>&1
     
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}  OK${NC}"
+        echo -e "${GREEN}  Compilation successful${NC}"
         ((SUCCESS_COUNT++))
+
+        # --- Core Correction: Resolve Overwrite Conflicts ---
+        for exe_name in "compress" "decompress"; do
+            if [ -f "$exe_name" ]; then
+                target_exe="$EXEC_DIR/${exe_name}_${suffix}"
+                # Critical: rm before cp to prevent "Text file busy"
+                rm -f "$target_exe" 
+                if cp "$exe_name" "$target_exe"; then
+                    echo -e "  └─ Extracted: ${exe_name}_${suffix}"
+                    chmod +x "$target_exe" # Ensure execution permissions
+                else
+                    echo -e "  ${RED}└─ Extraction failed: $target_exe (possibly still in use)${NC}"
+                fi
+            fi
+        done
     else
-        echo -e "${RED}  FAILED${NC}"
-        # 记录失败的项目相对路径
+        echo -e "${RED}  Compilation failed${NC}"
         FAILED_PROJECTS+=("$rel_path")
     fi
 
-    popd > /dev/null
-    popd > /dev/null
+    popd > /dev/null # Exit build
+    popd > /dev/null # Exit project directory
 
 done < <(find "$ABS_ROOT" -name "CMakeLists.txt")
 
-# --- 4. 打印汇总报告 ---
+# --- 4. Print Summary Report ---
 echo -e "\n\n================================================"
-echo -e "           编译任务汇总统计"
+echo -e "         Build & Extraction Task Summary"
 echo -e "================================================"
-echo -e "总计项目数: $TOTAL_COUNT"
-echo -e "成功数量:   ${GREEN}$SUCCESS_COUNT${NC}"
-echo -e "失败数量:   ${RED}${#FAILED_PROJECTS[@]}${NC}"
+echo -e "Total Projects:   $TOTAL_COUNT"
+echo -e "Success Count:    ${GREEN}$SUCCESS_COUNT${NC}"
+echo -e "Failure Count:    ${RED}${#FAILED_PROJECTS[@]}${NC}"
+echo -e "Output Directory: $EXEC_DIR"
 
 if [ ${#FAILED_PROJECTS[@]} -ne 0 ]; then
     echo -e "------------------------------------------------"
-    echo -e "${RED}以下项目构建失败:${NC}"
+    echo -e "${RED}The following projects failed to build:${NC}"
     for fail in "${FAILED_PROJECTS[@]}"; do
         echo -e "  ❌ $fail"
     done
     echo -e "------------------------------------------------"
 else
     echo -e "------------------------------------------------"
-    echo -e "${GREEN}恭喜！所有项目均构建成功。${NC}"
+    echo -e "${GREEN}Congratulations! All projects built and extracted successfully.${NC}"
 fi
 echo -e "================================================\n"

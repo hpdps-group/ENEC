@@ -1,0 +1,110 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
+ * This file constains code of cpu debug and npu code.We read data from bin file
+ * and write result to file.
+ */
+
+#ifndef snec_UTILS_H
+#define snec_UTILS_H
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <cassert>
+#include <cstdio>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <unistd.h>
+#include <chrono>
+#include <bitset>
+
+constexpr uint32_t BUFFER_NUM = 1;
+constexpr uint32_t BLOCK_NUM = 48;
+constexpr uint32_t HISTOGRAM_BINS = 256;
+// constexpr uint32_t DATA_BLOCK_BYTE_NUM_C = 16384;
+constexpr uint32_t DATA_BLOCK_BYTE_NUM_H = 
+16 * 4096
+// 256 * 32
+;
+constexpr uint32_t DATA_BLOCK_ELEMENT_NUM_C = 
+16384
+// 1024 * 32
+;
+
+struct Header
+{
+    uint32_t dataBlockSize;          // Data block size, in bytes
+    uint32_t dataBlockNum;           // Number of data blocks
+    uint16_t threadBlockNum;         // The number of thread blocks, the high 16 bits store the number of thread blocks and the low 16 bits store the compression level
+    uint16_t compLevel;              // Compression level
+    uint32_t totalUncompressedBytes_Origin; // Total uncompressed bytes O
+    uint32_t totalUncompressedBytes; // Total uncompressed bytes
+    uint32_t totalCompressedBytes;   // Total compression bytes
+    uint16_t tileLength;             // Tile length
+    uint16_t dataType;               // The data type is 0 for bf16, 1 for fp16, and 2 for fp32
+    uint16_t mblLength;              // mbl length
+    uint16_t options;                // The options are 0 for CPU, 1 for NV_GPU, 2 for AMD_GPU, and 3 for NPU
+    // uint32_t histogramBytes;         // A histogram holds the number of bytes
+};
+
+inline uint8_t *getMs0data(Header *cphd, uint8_t *compressed)// ms0: 低16位尾数（总共32位）
+{
+    return compressed + 32;
+}
+
+inline uint8_t *getMs1data(Header *cphd, uint8_t *compressed)// ms1: 符号位 + 高8位尾数（总共32位）
+{
+    return getMs0data(cphd, compressed) + cphd->totalUncompressedBytes / 2;
+}
+
+inline uint8_t *getEdata(Header *cphd, uint8_t *compressed)// ms
+{
+    return getMs1data(cphd, compressed) + cphd->totalUncompressedBytes / 4;
+}
+
+inline uint8_t *getMbl(Header *cphd, uint8_t *compressed)// compareMask
+{
+    if(cphd->dataType == 0 | cphd->dataType == 1)
+        return getEdata(cphd, compressed) + (cphd->dataBlockSize / sizeof(uint16_t)) * 4 / 8 * cphd->dataBlockNum;
+    else if (cphd->dataType == 2)
+        return getEdata(cphd, compressed) + (cphd->dataBlockSize / sizeof(uint32_t)) * 4 / 8 * cphd->dataBlockNum;
+}
+
+inline uint8_t *getCompSizePrefix(Header *cphd, uint8_t *compressed)// prefix
+{
+    if (cphd->dataType == 0 | cphd->dataType == 1)
+        return getMbl(cphd, compressed) + cphd->dataBlockNum * (cphd->dataBlockSize / (cphd->tileLength * sizeof(uint16_t)) / 8);
+    else if (cphd->dataType == 2)
+        return getMbl(cphd, compressed) + cphd->dataBlockNum * (cphd->dataBlockSize / (cphd->tileLength * sizeof(float)) / 8);
+}
+
+inline uint8_t *getCompressed_exp(Header *cphd, uint8_t *compressed)// low bits
+{
+    return getCompSizePrefix(cphd, compressed) + cphd->threadBlockNum * sizeof(uint32_t);
+}
+
+inline int getFinalbufferSize(uint32_t byteSize, uint32_t tileNum, uint32_t DATA_BLOCK_BYTE_NUM_C) // 单位：byte
+{
+    int datablockNum = (byteSize + DATA_BLOCK_BYTE_NUM_C - 1) / DATA_BLOCK_BYTE_NUM_C;
+    int datablockNumPerBLOCK = (datablockNum + BLOCK_NUM - 1) / BLOCK_NUM;
+    int FinalBufferSize =   32 + // 头
+                            DATA_BLOCK_BYTE_NUM_C / 2 * datablockNum + // ms0
+                            DATA_BLOCK_BYTE_NUM_C / 4 * datablockNum + // ms1
+                            (DATA_BLOCK_BYTE_NUM_C / sizeof(uint32_t)) * 4 / 8 * datablockNum + // low bits
+                            tileNum / 8 * datablockNum + // mbl compareMask
+                            BLOCK_NUM * 4 + // prefix
+                            (DATA_BLOCK_BYTE_NUM_C * datablockNumPerBLOCK) * BLOCK_NUM; // high bits
+    return FinalBufferSize;
+}
+
+inline float computeCr(uint32_t inputByteSize, uint32_t compressedSize)
+{
+    if (compressedSize == 0)
+    {
+        return 0.0f;
+    }
+    return static_cast<float>(inputByteSize) / static_cast<float>(compressedSize);
+}
+#endif

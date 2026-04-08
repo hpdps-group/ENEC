@@ -91,7 +91,7 @@ int main(int32_t argc, char *argv[])
     CHECK_ACL(aclrtMemcpy(srcDevice, inputByteSize, host, inputByteSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
     printf("Compression begin!\n");
-    for (int i = 0; i < 11; i++)
+    for (int i = 0; i < 4; i++)
     {
         enec_compress(cphd, stream, srcDevice, compressedDevice, compressedFinal, histogramDevice, blockCompSizeDevice);
         CHECK_ACL(aclrtSynchronizeStream(stream));

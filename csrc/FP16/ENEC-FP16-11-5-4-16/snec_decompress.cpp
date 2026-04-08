@@ -8,10 +8,10 @@
 #include "snec_device.h"
 
 template <typename T>
-class DecompressKernelBF16
+class DecompressKernelFP16
 {
 public:
-    __aicore__ inline DecompressKernelBF16() {}
+    __aicore__ inline DecompressKernelFP16() {}
 
     __aicore__ inline void Init(TPipe *pipe,
                                 uint32_t BUFFER_NUM,
@@ -825,7 +825,7 @@ private:
 
 };
 
-__global__ __aicore__ void decompBF16(
+__global__ __aicore__ void decompFP16(
     uint32_t BUFFER_NUM,
     uint32_t elementNum,
     uint32_t tileLength,
@@ -843,7 +843,7 @@ __global__ __aicore__ void decompBF16(
     __gm__ uint8_t* decompressedGlobal)
 {
     TPipe pipe;
-    DecompressKernelBF16<uint16_t> op;
+    DecompressKernelFP16<uint16_t> op;
     op.Init(&pipe, BUFFER_NUM, elementNum, tileLength, tileNum, threadblockNum, datablockNum, datablockSize, totalCompressedBytes,
             ms0Global, ms1Global, eGlobal0, mblGlobal, compSizePrefix, eGlobal1, decompressedGlobal);
     op.Process();
@@ -855,28 +855,26 @@ extern "C" void enec_decompress(Header* cphd, void* stream, uint8_t* compressed,
     {
     case 0:
     { // BF16
-        uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
-        uint32_t tileNum = elementNum / cphd->tileLength;
-        decompBF16<<<cphd->threadBlockNum, nullptr, stream>>>(1, elementNum, cphd->tileLength, tileNum, cphd->threadBlockNum, cphd->dataBlockNum, cphd->dataBlockSize, cphd->totalCompressedBytes,
-                                                            getMs0data(cphd, compressed), getMs1data(cphd, compressed), getEdata(cphd, compressed), getMbl(cphd, compressed), getCompSizePrefix(cphd, compressed), getCompressed_exp(cphd, compressed), decompressed);
+        // uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
+        // uint32_t tileNum = elementNum / cphd->tileLength;
+        // decompBF16<<<cphd->threadBlockNum, nullptr, stream>>>(1, elementNum, cphd->tileLength, tileNum, cphd->threadBlockNum, cphd->dataBlockNum, cphd->dataBlockSize, cphd->totalCompressedBytes,
+        //                                                     getMs0data(cphd, compressed), getMs1data(cphd, compressed), getEdata(cphd, compressed), getMbl(cphd, compressed), getCompSizePrefix(cphd, compressed), getCompressed_exp(cphd, compressed), decompressed);
         break;
     }
     case 1:
     { // FP16
         uint32_t elementNum = cphd->dataBlockSize / sizeof(uint16_t);
         uint32_t tileNum = elementNum / cphd->tileLength;
-        decompBF16<<<cphd->threadBlockNum, nullptr, stream>>>(1, elementNum, cphd->tileLength, tileNum, cphd->threadBlockNum, cphd->dataBlockNum, cphd->dataBlockSize, cphd->totalCompressedBytes,
+        decompFP16<<<cphd->threadBlockNum, nullptr, stream>>>(1, elementNum, cphd->tileLength, tileNum, cphd->threadBlockNum, cphd->dataBlockNum, cphd->dataBlockSize, cphd->totalCompressedBytes,
                                                             getMs0data(cphd, compressed), getMs1data(cphd, compressed), getEdata(cphd, compressed), getMbl(cphd, compressed), getCompSizePrefix(cphd, compressed), getCompressed_exp(cphd, compressed), decompressed);
-        break;
         break;
     }
     case 2:
     { // FP32
-        uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
-        uint32_t tileNum = elementNum / cphd->tileLength;
-        decompBF16<<<cphd->threadBlockNum, nullptr, stream>>>(1, elementNum, cphd->tileLength, tileNum, cphd->threadBlockNum, cphd->dataBlockNum, cphd->dataBlockSize, cphd->totalCompressedBytes,
-                                                            getMs0data(cphd, compressed), getMs1data(cphd, compressed), getEdata(cphd, compressed), getMbl(cphd, compressed), getCompSizePrefix(cphd, compressed), getCompressed_exp(cphd, compressed), decompressed);
-        break;
+        // uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
+        // uint32_t tileNum = elementNum / cphd->tileLength;
+        // decompBF16<<<cphd->threadBlockNum, nullptr, stream>>>(1, elementNum, cphd->tileLength, tileNum, cphd->threadBlockNum, cphd->dataBlockNum, cphd->dataBlockSize, cphd->totalCompressedBytes,
+        //                                                     getMs0data(cphd, compressed), getMs1data(cphd, compressed), getEdata(cphd, compressed), getMbl(cphd, compressed), getCompSizePrefix(cphd, compressed), getCompressed_exp(cphd, compressed), decompressed);
         break;
     }
     default:

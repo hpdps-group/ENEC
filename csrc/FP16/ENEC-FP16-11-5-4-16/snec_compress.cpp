@@ -3,10 +3,10 @@
 #include "snec_device.h"
 
 template <typename T>
-class CompressKernelBF16
+class CompressKernelFP16
 {
 public:
-    __aicore__ inline CompressKernelBF16() {}
+    __aicore__ inline CompressKernelFP16() {}
 
     __aicore__ inline void Init(TPipe *pipe,
                                 uint32_t datablockNum,
@@ -406,7 +406,7 @@ private:
     uint32_t dstShape_cmp[2];
 };
 
-__global__ __aicore__ void compBF16(uint32_t datablockNum,
+__global__ __aicore__ void compFP16(uint32_t datablockNum,
                                     uint32_t datablockSize,
                                     uint32_t elementNum,
                                     uint32_t tileLength,
@@ -420,7 +420,7 @@ __global__ __aicore__ void compBF16(uint32_t datablockNum,
                                     __gm__ uint8_t* blockCompSize)
 {
     TPipe pipe;
-    CompressKernelBF16<uint16_t> op;
+    CompressKernelFP16<uint16_t> op;
     op.Init(&pipe, datablockNum, datablockSize, elementNum, tileLength, 
             srcDevice, 
             ms0Global, 
@@ -439,23 +439,23 @@ extern "C" void enec_compress(Header *cphd, void *stream, uint8_t* srcDevice, ui
     {
     case 0:
     { // BF16
-        uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
-        compBF16<<<BLOCK_NUM, nullptr, stream>>>(
-            cphd->dataBlockNum, cphd->dataBlockSize, elementNum, cphd->tileLength, 
-            srcDevice, 
-            getMs0data(cphd, compressedFinal), 
-            getMs1data(cphd, compressedFinal), 
-            getEdata(cphd, compressedFinal),
-            getMbl(cphd, compressedFinal), 
-            getCompressed_exp(cphd, compressedDevice), 
-            histogramDevice, 
-            blockCompSize);
+        // uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
+        // compBF16<<<BLOCK_NUM, nullptr, stream>>>(
+        //     cphd->dataBlockNum, cphd->dataBlockSize, elementNum, cphd->tileLength, 
+        //     srcDevice, 
+        //     getMs0data(cphd, compressedFinal), 
+        //     getMs1data(cphd, compressedFinal), 
+        //     getEdata(cphd, compressedFinal),
+        //     getMbl(cphd, compressedFinal), 
+        //     getCompressed_exp(cphd, compressedDevice), 
+        //     histogramDevice, 
+        //     blockCompSize);
         break;
     }
     case 1:
     { // FP16
         uint32_t elementNum = cphd->dataBlockSize / sizeof(uint16_t);
-        compBF16<<<BLOCK_NUM, nullptr, stream>>>(
+        compFP16<<<BLOCK_NUM, nullptr, stream>>>(
             cphd->dataBlockNum, cphd->dataBlockSize, elementNum, cphd->tileLength, 
             srcDevice, 
             getMs0data(cphd, compressedFinal), 
@@ -470,17 +470,17 @@ extern "C" void enec_compress(Header *cphd, void *stream, uint8_t* srcDevice, ui
     }
     case 2:
     { // FP32
-        uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
-        compBF16<<<BLOCK_NUM, nullptr, stream>>>(
-            cphd->dataBlockNum, cphd->dataBlockSize, elementNum, cphd->tileLength, 
-            srcDevice, 
-            getMs0data(cphd, compressedFinal), 
-            getMs1data(cphd, compressedFinal), 
-            getEdata(cphd, compressedFinal),
-            getMbl(cphd, compressedFinal), 
-            getCompressed_exp(cphd, compressedDevice), 
-            histogramDevice, 
-            blockCompSize);
+        // uint32_t elementNum = cphd->dataBlockSize / sizeof(uint32_t);
+        // compBF16<<<BLOCK_NUM, nullptr, stream>>>(
+        //     cphd->dataBlockNum, cphd->dataBlockSize, elementNum, cphd->tileLength, 
+        //     srcDevice, 
+        //     getMs0data(cphd, compressedFinal), 
+        //     getMs1data(cphd, compressedFinal), 
+        //     getEdata(cphd, compressedFinal),
+        //     getMbl(cphd, compressedFinal), 
+        //     getCompressed_exp(cphd, compressedDevice), 
+        //     histogramDevice, 
+        //     blockCompSize);
         break;
         // break;
     }

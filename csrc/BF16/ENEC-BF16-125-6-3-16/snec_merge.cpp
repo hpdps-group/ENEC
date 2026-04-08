@@ -126,7 +126,7 @@ public:
         {
             totalcompressedsize = 32 +
                                 totaluncompressedbytes / 2 +
-                                datablocknum * (datablocksize / sizeof(uint16_t) * 4 / 8) +  
+                                datablocknum * (datablocksize / sizeof(uint16_t) * 3 / 8) +  
                                 datablocknum * (datablocksize / (tilelength * sizeof(uint16_t)) / 8) +
                                 threadblocknum * 4 +
                                 totalcompsize;
@@ -135,7 +135,7 @@ public:
         {
             totalcompressedsize = 32 +
                                 totaluncompressedbytes / 2 +
-                                datablocknum * (datablocksize / sizeof(uint16_t) * 4 / 8) +  
+                                datablocknum * (datablocksize / sizeof(uint16_t) * 3 / 8) +  
                                 datablocknum * (datablocksize / (tilelength * sizeof(float))) / 8 +
                                 threadblocknum * 4 +
                                 totalcompsize;
